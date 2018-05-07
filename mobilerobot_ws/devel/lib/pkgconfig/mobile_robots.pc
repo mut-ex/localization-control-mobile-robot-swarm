@@ -1,0 +1,8 @@
+prefix=/home/jacob/mobilerobot_ws/devel
+
+Name: mobile_robots
+Description: Description of mobile_robots
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/jacob/mobilerobot_ws/devel/lib 
+Requires: 

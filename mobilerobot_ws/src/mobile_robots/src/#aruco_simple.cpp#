@@ -1,0 +1,204 @@
+#include <string>
+#include <iomanip>
+#include <iostream>
+#include <aruco/aruco.h>
+#include <aruco/cvdrawingutils.h>
+
+#include <opencv2/highgui/highgui.hpp>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
+
+#include <math.h>
+using namespace cv;
+using namespace aruco;
+
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+
+#include "std_msgs/Float64MultiArray.h"
+
+//#include <sstream>
+
+# define M_PI           3.14159265358979323846  /* pi */
+const float p_off = M_PI;
+const float r_off = M_PI/2;
+const float y_off = M_PI/2;
+
+#ifdef _WIN32
+#include <Windows.h>
+#else
+#include <sys/time.h>
+#include <ctime>
+#endif
+
+
+uint64 GetTimeMs64()
+{
+ /* Linux */
+ struct timeval tv;
+
+ gettimeofday(&tv, NULL);
+
+ uint64 ret = tv.tv_usec;
+ /* Convert from micro seconds (10^-6) to milliseconds (10^-3) */
+ ret /= 1000;
+
+ /* Adds the seconds (10^0) after converting them to milliseconds (10^-3) */
+ ret += (tv.tv_sec * 1000);
+
+ return ret;
+}
+
+
+int main(int argc, char **argv)
+{
+    int j;
+    uint64 begin_t, end_t, temp;
+    float delta;
+    try
+    {
+        ros::init(argc, argv, "talker");
+        ros::NodeHandle n;
+        ros::Publisher chatter_pub = n.advertise<std_msgs::Float64MultiArray>("chatter", 1);
+
+        vector<double> vec;
+        VideoCapture stream1(0);
+
+        aruco::CameraParameters CamParam;
+
+        cv::Mat InImage;
+
+        if (!stream1.isOpened())   //check if video device has been initialised
+        {
+            cout << "cannot open camera";
+        }
+
+        stream1.set(CV_CAP_PROP_FRAME_WIDTH, 1280);
+        stream1.set(CV_CAP_PROP_FRAME_HEIGHT, 720);
+
+        //MDetector.setThresholdParams(7, 7);
+        //MDetector.setThresholdParamRange(2, 0);
+        //std::map<uint32_t,MarkerPoseTracker> MTracker;
+
+        double position[3], orientation[4], normalized, rotX, rotY, rotZ;
+        
+
+        float x_t, y_t, z_t;
+        float roll,yaw,pitch;
+        cv::Mat rot_mat(3, 3, cv::DataType<float>::type);
+
+        stream1.read(InImage);
+
+
+        // read camera parameters if specifed
+        CamParam.readFromXMLFile("/home/adil/microsoft_lifecam_1080.yml");
+        CamParam.resize(InImage.size());
+
+
+
+        // read marker size if specified (default value -1)
+        float MarkerSize = 0.032;
+
+        while (ros::ok())
+        {
+            vec.clear();
+            //read the input image
+            stream1.read(InImage);
+
+            MarkerDetector MDetector;
+
+           // MDetector.setParams();// my_params;
+
+           //MDetector.setThresholdParams(7, 1);
+            //MDetector.setThresholdParamRange(2, 0);
+            vector< Marker >  Markers;
+            
+            MDetector.detect(InImage, Markers, CamParam, MarkerSize);
+            //for(auto & marker:Markers)//for each marker
+             //   MTracker[marker.id].estimatePose(marker,CamParam,MarkerSize);//call its tracker and estimate the pose
+
+            //for each marker, draw info and its boundaries in the image
+            for (unsigned int i=0; i<Markers.size(); i++)
+            {
+                Markers[i].OgreGetPoseParameters(position, orientation);
+                //MTracadilker[Markers[i].id].estimatePose(Markers[i],CamParam,MarkerSize);
+                //normalized = orientation[0]*orientation[0] + orientation[1]*orientation[1] + orientation[2]*orientation[2] + orientation[3]*orientation[3];
+                //cout<<"id = "<<Markers[i].id<<"  x = "<<position[0]*1000<<" mm  y = "<<position[2]*1000<<" mm"<<" W = "<<orientation[0]<<" X = "<<orientation[1]<<" Y = "<<orientation[2]<<" Z = "<<orientation[3]<<" Normalization = "<<normalized<<endl;
+                double t3 = +2.0 * (orientation[0] * orientation[3] + orientation[1] * orientation[2]);
+                double t4 = +1.0 - 2.0 * (orientation[2]*orientation[2] + orientation[3] * orientation[3]); 
+                rotZ = atan2(t3, t4)*180/M_PI;
+                temp = GetTimeMs64();
+                cout<<"id = "<<Markers[i].id<<"  x = "<<position[0]*1000<<" mm  y = "<<position[1]*1000<<" mm"<<" Theta(Z) = "<<rotZ<<" TS = "<<temp<<endl;
+                
+                // x_t = -Markers[0].Tvec.at<Vec3f>(0,0)[0];
+                // y_t = Markers[0].Tvec.at<Vec3f>(0,0)[1];
+                // z_t = Markers[0].Tvec.at<Vec3f>(0,0)[2];
+
+                // cv::Rodrigues(Markers[0].Rvec, rot_mat);
+
+                // pitch = -atan2(rot_mat.at<float>(2,0), rot_mat.at<float>(2,1));
+                // yaw   = acos(rot_mat.at<float>(2,2));
+                // roll  = -atan2(rot_mat.at<float>(0,2), rot_mat.at<float>(1,2));
+
+                // cout<<"Roll = "<<(roll-r_off)*(180.0/M_PI)<<" Pitch = "<<(pitch-p_off)*(180.0/M_PI)<<" Yaw = "<<(yaw-y_off)*(180.0/M_PI)<<endl;
+
+                Markers[i].draw(InImage,Scalar(0,0,255),2);
+
+                vec.push_back(Markers[i].id);
+                vec.push_back(position[0]*1000);
+                vec.push_back(position[1]*1000);
+                vec.push_back(rotZ);
+                vec.push_back(temp);
+
+                //<<Markers[i]<<endl;
+            }
+
+            if (CamParam.isValid() && MarkerSize != -1)
+            {
+                for (unsigned int i = 0; i < Markers.size(); i++)
+                {
+                    CvDrawingUtils::draw3dCube(InImage, Markers[i], CamParam);
+                    CvDrawingUtils::draw3dAxis(InImage, Markers[i], CamParam);
+                }
+            }
+
+            if (vec.size() != 0)
+            {
+                std_msgs::Float64MultiArray msg;
+
+                // set up dimensions
+                msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
+                msg.layout.dim[0].size = vec.size();
+                msg.layout.dim[0].stride = 1;
+                msg.layout.dim[0].label = "x"; // or whatever name you typically use to index vec1
+
+                msg.data.clear();
+                 //push data into data blob
+                vector<double>::const_iterator itr, end(vec.end());
+                for(itr = vec.begin(); itr!= end; ++itr) {
+                    //cout<<*itr<<endl;
+                    msg.data.push_back(*itr);
+                }/**/
+
+                //ROS_INFO("%s", msg.data.c_str());
+                chatter_pub.publish(msg);
+            }
+            
+            end_t = GetTimeMs64();
+            delta = (float)(end_t-begin_t);
+            cout<<"Frames per second = "<<std::fixed<<(1/(delta))*1000<<" Size: "<<vec.size()<<endl;
+            begin_t = GetTimeMs64();
+
+            cv::imshow("in",InImage);
+
+            if (waitKey(30) >= 0)
+                break;
+        }
+    }
+    catch (std::exception &ex)
+    {
+        cout<<"Exception :"<<ex.what()<<endl;
+    }
+}
+

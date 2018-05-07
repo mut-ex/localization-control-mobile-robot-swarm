@@ -1,0 +1,2 @@
+mobile_robots
+-DCATKIN_DEVEL_PREFIX=/home/jacob/mobilerobot_ws/devel -DCMAKE_INSTALL_PREFIX=/home/jacob/mobilerobot_ws/install -G Unix Makefiles
