@@ -1,5 +1,7 @@
-# localization-control-mobile-robot-swarm
-Summary: This repository containts the ROS workspace for a project that utilizes the ArUco library in C++, along with Python code, for the localization and centralized control of a swarm of mobile robots.
+# Localization and Centralized Control of a Swarm of Robots (ROS + ArUco)
+
+##Summary
+This repository containts the ROS workspace for a project that utilizes the ArUco library in C++, along with Python code, for the localization and centralized control of a swarm of mobile robots.
 
 This project was accomplished as a result of my research at the Human Oriented Robotics and Control (HORC) Lab at Arizona State University.
 
